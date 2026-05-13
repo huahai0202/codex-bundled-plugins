@@ -32,37 +32,36 @@ scripts/repair-codex-windows-browser-use.ps1
 
 ## Usage
 
-Sync the bundled plugin marketplace:
+Use this skill from inside Codex. Tell Codex what is broken, then ask it to run the repair according to the skill.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1
+Example prompt:
+
+```text
+Use $codex-bundled-plugins to check my Codex Desktop bundled plugins and repair the issue.
 ```
 
-Sync the marketplace and enable bundled plugins immediately:
+If the plugin marketplace is missing or returns `403`, ask:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1 -EnableBundledPlugins
+```text
+Use $codex-bundled-plugins to sync the bundled plugin marketplace and register it in my Codex config.
 ```
 
-Check browser helper repair status first:
+If `Browser Use` or `Chrome` fails to start, ask:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -DryRun
+```text
+Use $codex-bundled-plugins to inspect and repair the Browser Use / Chrome helper binaries on Windows.
 ```
 
-Repair browser helper binaries:
+If Codex Desktop was updated and browser tools stopped working, ask:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1
+```text
+Use $codex-bundled-plugins to refresh the local browser helper binary cache from the newest Codex Desktop package.
 ```
 
-Refresh helper binaries after a Codex Desktop update:
+Codex will choose the correct recovery path from this skill, run the relevant PowerShell script, and report what changed.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -Force
-```
+Advanced users can still run the scripts directly from the `scripts/` folder if they want manual control.
 
 ## Notes
 
 After running a repair, fully quit and restart Codex Desktop. The current thread's available tools may not refresh until a new thread is opened.
-
