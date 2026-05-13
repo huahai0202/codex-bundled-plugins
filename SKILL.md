@@ -69,7 +69,7 @@ powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundl
 
 The script backs up `config.toml` before editing, replaces the local bundled marketplace with the newest bundled marketplace, and preserves existing config entries.
 
-Use `-EnableBundledPlugins` only when the user wants `chrome`, `browser-use`, and `latex-tectonic` marked enabled immediately:
+Use `-EnableBundledPlugins` only when the user wants every plugin listed in the bundled marketplace marked enabled immediately:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1 -EnableBundledPlugins

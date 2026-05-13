@@ -134,8 +134,16 @@ $content = Ensure-Section -Content $content -Section "marketplaces.openai-bundle
   "source" = "'$stableSource'"
 }
 
+$marketplace = Get-Content -LiteralPath (Join-Path $dest ".agents\plugins\marketplace.json") -Raw | ConvertFrom-Json
+$pluginNames = @(
+  $marketplace.plugins |
+    ForEach-Object { $_.name } |
+    Where-Object { $_ } |
+    Select-Object -Unique
+)
+
 if ($EnableBundledPlugins) {
-  foreach ($plugin in @("browser-use", "chrome", "latex-tectonic")) {
+  foreach ($plugin in $pluginNames) {
     $content = Ensure-Section -Content $content -Section "plugins.`"$plugin@openai-bundled`"" -Entries @{
       "enabled" = "true"
     }
@@ -143,9 +151,6 @@ if ($EnableBundledPlugins) {
 }
 
 Set-Content -LiteralPath $configPath -Value $content -Encoding UTF8
-
-$marketplace = Get-Content -LiteralPath (Join-Path $dest ".agents\plugins\marketplace.json") -Raw | ConvertFrom-Json
-$pluginNames = ($marketplace.plugins | Select-Object -ExpandProperty name) -join ", "
 
 Write-Host ""
 Write-Host "Synced bundled marketplace from:"
@@ -156,7 +161,14 @@ Write-Host "Registered marketplace in:"
 Write-Host "  $configPath"
 Write-Host "Backup:"
 Write-Host "  $backupPath"
-Write-Host "Plugins:"
-Write-Host "  $pluginNames"
+Write-Host "Plugins in marketplace:"
+Write-Host "  $($pluginNames -join ', ')"
+if ($EnableBundledPlugins) {
+  Write-Host "Enabled bundled plugins:"
+  Write-Host "  $($pluginNames -join ', ')"
+} else {
+  Write-Host "Bundled plugins were synced but not enabled."
+  Write-Host "Re-run with -EnableBundledPlugins to enable every plugin in the bundled marketplace."
+}
 Write-Host ""
 Write-Host "Restart Codex desktop to reload plugin marketplaces."

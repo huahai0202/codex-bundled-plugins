@@ -62,6 +62,8 @@ Use $codex-bundled-plugins to resync the bundled plugin marketplace from the new
 
 Codex will choose the correct recovery path from this skill, run the relevant PowerShell script, and report what changed.
 
+If you run the sync without `-EnableBundledPlugins`, Codex will say the bundled plugins were synced but not enabled.
+
 Advanced users can still run the scripts directly from the `scripts/` folder if they want manual control.
 
 ## Notes
