@@ -1,3 +1,5 @@
+# Codex Desktop is excellent in many ways, but Windows support has not always felt like a first-class experience. This issue has been around for a long time without a clean fix, which is why this skill exists.
+
 # Codex Bundled Plugins
 
 Restore Codex Desktop's bundled OpenAI plugins and repair Windows browser helper binaries.
