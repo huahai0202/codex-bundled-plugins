@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Bundled Plugins"
   short_description: "Restore bundled plugins and browser helpers"
-  default_prompt: "Use $codex-bundled-plugins to resync Codex desktop bundled plugins and repair Browser Use or Chrome helper binaries on Windows."
+  default_prompt: "Recommended: Use $codex-bundled-plugins to check, enable, and repair Codex desktop bundled plugins and Browser Use or Chrome helper binaries on Windows."
 
 policy:
   allow_implicit_invocation: false

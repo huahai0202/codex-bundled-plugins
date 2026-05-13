@@ -36,10 +36,10 @@ scripts/repair-codex-windows-browser-use.ps1
 
 Use this skill from inside Codex. Tell Codex what is broken, then ask it to run the repair according to the skill.
 
-Example prompt:
+Recommended example prompt:
 
 ```text
-Use $codex-bundled-plugins to check my Codex Desktop bundled plugins and repair the issue.
+Use $codex-bundled-plugins to check, enable, and repair my Codex Desktop bundled plugins.
 ```
 
 If the plugin marketplace is missing or returns `403`, ask:
