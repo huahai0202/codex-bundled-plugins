@@ -10,14 +10,16 @@ This skill is intended for Windows users of Codex Desktop who run into plugin ma
 - Remote marketplace errors such as `403`
 - `Browser Use` or `Chrome` tool startup failures
 - Missing or stale helper binaries under `%LOCALAPPDATA%\OpenAI\Codex\bin`
-- Codex Desktop updates that leave the local browser helper cache out of date
+- Codex Desktop updates that leave bundled plugins or the local browser helper cache out of date
 
 ## What It Does
 
-The skill provides two recovery paths:
+The skill provides two recovery paths that can be run independently or together:
 
-- **Marketplace sync**: copies Codex Desktop's bundled `openai-bundled` marketplace from the WindowsApps package into `%USERPROFILE%\.codex\plugins\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml`.
+- **Marketplace sync**: replaces `%USERPROFILE%\.codex\plugins\openai-bundled` with a freshly copied marketplace from the newest Codex Desktop WindowsApps package, then registers it in `%USERPROFILE%\.codex\config.toml`.
 - **Helper repair**: copies only the required helper binaries from the installed Codex Desktop package resources into `%LOCALAPPDATA%\OpenAI\Codex\bin`.
+
+After a Codex Desktop update, the bundled marketplace may contain newer plugin versions, so the recommended recovery flow is to resync the marketplace first, then refresh helper binaries when browser tools are involved.
 
 It does not modify Chrome profiles, cookies, passwords, session stores, or native host manifests.
 
@@ -52,10 +54,10 @@ If `Browser Use` or `Chrome` fails to start, ask:
 Use $codex-bundled-plugins to inspect and repair the Browser Use / Chrome helper binaries on Windows.
 ```
 
-If Codex Desktop was updated and browser tools stopped working, ask:
+If Codex Desktop was updated, ask Codex to refresh both bundled plugins and helper binaries:
 
 ```text
-Use $codex-bundled-plugins to refresh the local browser helper binary cache from the newest Codex Desktop package.
+Use $codex-bundled-plugins to resync the bundled plugin marketplace from the newest Codex Desktop package, then refresh the Browser Use / Chrome helper binaries if needed.
 ```
 
 Codex will choose the correct recovery path from this skill, run the relevant PowerShell script, and report what changed.

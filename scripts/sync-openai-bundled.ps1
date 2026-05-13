@@ -38,6 +38,8 @@ function Ensure-Section {
 $codexHome = Join-Path $env:USERPROFILE ".codex"
 $configPath = Join-Path $codexHome "config.toml"
 $dest = Join-Path $codexHome "plugins\openai-bundled"
+$pluginsRoot = Split-Path -Parent $dest
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 $pkg = Get-AppxPackage OpenAI.Codex -ErrorAction SilentlyContinue |
   Sort-Object Version -Descending |
@@ -61,12 +63,51 @@ if (-not (Test-Path -LiteralPath $marketplaceJson)) {
   throw "Bundled marketplace not found at: $marketplaceJson"
 }
 
-New-Item -ItemType Directory -Force -Path $dest | Out-Null
+New-Item -ItemType Directory -Force -Path $pluginsRoot | Out-Null
 
+$tempDest = Join-Path $pluginsRoot "openai-bundled.tmp-$timestamp"
+$oldDest = Join-Path $pluginsRoot "openai-bundled.old-$timestamp"
 $sourceGlob = Join-Path $sourceRoot "*"
-xcopy.exe $sourceGlob ($dest + "\") /E /I /H /Y /G /Q | Out-Host
-if ($LASTEXITCODE -ne 0) {
-  throw "xcopy failed with exit code $LASTEXITCODE"
+
+if (Test-Path -LiteralPath $tempDest) {
+  Remove-Item -LiteralPath $tempDest -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force -Path $tempDest | Out-Null
+
+try {
+  xcopy.exe $sourceGlob ($tempDest + "\") /E /I /H /Y /G /Q | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw "xcopy failed with exit code $LASTEXITCODE"
+  }
+
+  $tempMarketplaceJson = Join-Path $tempDest ".agents\plugins\marketplace.json"
+  if (-not (Test-Path -LiteralPath $tempMarketplaceJson)) {
+    throw "Copied marketplace is missing marketplace.json: $tempMarketplaceJson"
+  }
+
+  $movedOld = $false
+  if (Test-Path -LiteralPath $dest) {
+    Move-Item -LiteralPath $dest -Destination $oldDest -Force
+    $movedOld = $true
+  }
+
+  try {
+    Move-Item -LiteralPath $tempDest -Destination $dest -Force
+    if ($movedOld -and (Test-Path -LiteralPath $oldDest)) {
+      Remove-Item -LiteralPath $oldDest -Recurse -Force
+    }
+  } catch {
+    if ((-not (Test-Path -LiteralPath $dest)) -and (Test-Path -LiteralPath $oldDest)) {
+      Move-Item -LiteralPath $oldDest -Destination $dest -Force
+    }
+    throw
+  }
+} catch {
+  if (Test-Path -LiteralPath $tempDest) {
+    Remove-Item -LiteralPath $tempDest -Recurse -Force
+  }
+  throw
 }
 
 if (-not (Test-Path -LiteralPath $configPath)) {
@@ -74,7 +115,6 @@ if (-not (Test-Path -LiteralPath $configPath)) {
   Set-Content -LiteralPath $configPath -Value "" -Encoding UTF8
 }
 
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $backupPath = "$configPath.bak-openai-bundled-$timestamp"
 Copy-Item -LiteralPath $configPath -Destination $backupPath -Force
 

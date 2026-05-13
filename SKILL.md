@@ -13,6 +13,7 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    - Missing plugin marketplace or remote marketplace 403: run the bundled marketplace sync.
    - Browser Use or Chrome startup failure after the plugin exists: run the helper binary repair.
    - Both symptoms: run the marketplace sync, then the helper repair.
+   - Codex desktop was updated: run the marketplace sync first because bundled plugins may have changed, then run the helper repair if Browser Use or Chrome helpers are missing, stale, or browser tools are involved.
 2. Locate the newest installed Codex desktop package under:
 
    ```text
@@ -25,13 +26,13 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    app\resources\plugins\openai-bundled
    ```
 
-4. Copy the bundled marketplace to the stable user path:
+4. Replace the bundled marketplace at the stable user path with a fresh copy from the newest package:
 
    ```text
    C:\Users\<user>\.codex\plugins\openai-bundled
    ```
 
-   On Windows, prefer `xcopy.exe /G /Q` because WindowsApps plugin files may be encrypted/protected and `Copy-Item` or `robocopy` can fail with `ERROR 6000: The specified file could not be encrypted`.
+   On Windows, prefer staging the copy into a temporary directory with `xcopy.exe /G /Q`, validating that `.agents\plugins\marketplace.json` exists, then replacing the destination directory. This avoids stale plugin files after Codex updates. WindowsApps plugin files may be encrypted/protected and `Copy-Item` or `robocopy` can fail with `ERROR 6000: The specified file could not be encrypted`.
 
 5. Update `%USERPROFILE%\.codex\config.toml`:
 
@@ -66,7 +67,7 @@ Run the bundled script for the common case:
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1
 ```
 
-The script backs up `config.toml` before editing, copies the newest bundled marketplace, and preserves existing config entries.
+The script backs up `config.toml` before editing, replaces the local bundled marketplace with the newest bundled marketplace, and preserves existing config entries.
 
 Use `-EnableBundledPlugins` only when the user wants `chrome`, `browser-use`, and `latex-tectonic` marked enabled immediately:
 
@@ -94,7 +95,7 @@ If package discovery fails, pass the package resources directory explicitly:
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -PackageResourcesPath "C:\Program Files\WindowsApps\OpenAI.Codex_26.506.3741.0_x64__2p2nqsd0c76g0\app\resources"
 ```
 
-If Codex was updated, rerun the repair with `-Force` to refresh the local cache from the newest package:
+If Codex was updated, run the marketplace sync first so the bundled plugin marketplace is refreshed from the newest package. Then rerun the helper repair with `-Force` when Browser Use or Chrome helpers also need to be refreshed:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -Force
