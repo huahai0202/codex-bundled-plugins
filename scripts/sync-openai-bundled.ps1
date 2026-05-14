@@ -41,22 +41,48 @@ $dest = Join-Path $codexHome "plugins\openai-bundled"
 $pluginsRoot = Split-Path -Parent $dest
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
-$pkg = Get-AppxPackage OpenAI.Codex -ErrorAction SilentlyContinue |
-  Sort-Object Version -Descending |
-  Select-Object -First 1
+function Test-BundledMarketplace {
+  param([Parameter(Mandatory = $true)][string]$InstallLocation)
 
-if (-not $pkg) {
-  $pkg = Get-ChildItem "C:\Program Files\WindowsApps" -Directory -ErrorAction Stop |
-    Where-Object { $_.Name -like "OpenAI.Codex_*_x64__2p2nqsd0c76g0" } |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
+  $marketplaceJson = Join-Path $InstallLocation "app\resources\plugins\openai-bundled\.agents\plugins\marketplace.json"
+  return (Test-Path -LiteralPath $marketplaceJson)
 }
 
-if (-not $pkg) {
-  throw "No OpenAI.Codex WindowsApps package was found."
+function Get-CodexInstallLocation {
+  $candidates = New-Object System.Collections.Generic.List[string]
+
+  try {
+    $packages = @(Get-AppxPackage -Name "OpenAI.Codex" -ErrorAction SilentlyContinue |
+      Sort-Object Version -Descending)
+    foreach ($package in $packages) {
+      if ($package.InstallLocation) {
+        $candidates.Add($package.InstallLocation)
+      }
+    }
+  } catch {
+    # Keep searching by filesystem path below.
+  }
+
+  $windowsApps = Join-Path $env:ProgramFiles "WindowsApps"
+  if (Test-Path -LiteralPath $windowsApps) {
+    $packageDirs = @(Get-ChildItem -Directory -LiteralPath $windowsApps -Filter "OpenAI.Codex_*" -ErrorAction SilentlyContinue |
+      Sort-Object LastWriteTime -Descending)
+    foreach ($dir in $packageDirs) {
+      $candidates.Add($dir.FullName)
+    }
+  }
+
+  $unique = $candidates | Where-Object { $_ } | Select-Object -Unique
+  foreach ($candidate in $unique) {
+    if ((Test-Path -LiteralPath $candidate) -and (Test-BundledMarketplace -InstallLocation $candidate)) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+
+  throw "Could not find an OpenAI.Codex WindowsApps package containing the bundled marketplace."
 }
 
-$installLocation = if ($pkg.InstallLocation) { $pkg.InstallLocation } else { $pkg.FullName }
+$installLocation = Get-CodexInstallLocation
 $sourceRoot = Join-Path $installLocation "app\resources\plugins\openai-bundled"
 $marketplaceJson = Join-Path $sourceRoot ".agents\plugins\marketplace.json"
 if (-not (Test-Path -LiteralPath $marketplaceJson)) {

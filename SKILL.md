@@ -14,11 +14,13 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    - Browser Use or Chrome startup failure after the plugin exists: run the helper binary repair.
    - Both symptoms: run the marketplace sync, then the helper repair.
    - Codex desktop was updated: run the marketplace sync first because bundled plugins may have changed, then run the helper repair if Browser Use or Chrome helpers are missing, stale, or browser tools are involved.
-2. Locate the newest installed Codex desktop package under:
+2. Locate the newest installed Codex desktop package. Prefer `Get-AppxPackage -Name OpenAI.Codex`; if that is unavailable, scan package directories under:
 
    ```text
-   C:\Program Files\WindowsApps\OpenAI.Codex_*_x64__2p2nqsd0c76g0
+   C:\Program Files\WindowsApps\OpenAI.Codex_*
    ```
+
+   Do not assume the architecture or package family suffix is permanent. Validate the package by checking that the required marketplace or helper resources exist.
 
 3. For marketplace sync, confirm this source exists:
 
@@ -92,8 +94,10 @@ powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundl
 If package discovery fails, pass the package resources directory explicitly:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -PackageResourcesPath "C:\Program Files\WindowsApps\OpenAI.Codex_26.506.3741.0_x64__2p2nqsd0c76g0\app\resources"
+powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\repair-codex-windows-browser-use.ps1 -PackageResourcesPath "C:\Program Files\WindowsApps\OpenAI.Codex_<version>_<arch>__<publisher>\app\resources"
 ```
+
+Replace the placeholder package directory with the actual newest `OpenAI.Codex_*` directory on the machine.
 
 If Codex was updated, run the marketplace sync first so the bundled plugin marketplace is refreshed from the newest package. Then rerun the helper repair with `-Force` when Browser Use or Chrome helpers also need to be refreshed:
 

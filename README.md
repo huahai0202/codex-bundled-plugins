@@ -117,7 +117,8 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-b
 
 ## Safety Notes
 
-- The marketplace sync uses the newest installed `OpenAI.Codex_*_x64__2p2nqsd0c76g0` package under `C:\Program Files\WindowsApps`.
+- The marketplace sync prefers `Get-AppxPackage -Name OpenAI.Codex`, then falls back to scanning `OpenAI.Codex_*` package directories under `C:\Program Files\WindowsApps`.
+- The scripts validate resources before using a package, so they do not depend on a fixed architecture or package family suffix.
 - The helper repair copies only this fixed binary set: `codex.exe`, `node.exe`, `node_repl.exe`, `codex-command-runner.exe`, `codex-windows-sandbox-setup.exe`, and `rg.exe`.
 - The scripts avoid copying the entire Codex `app\resources` directory into the helper cache.
 - Restart Codex Desktop after running a repair. The current thread's available tool list may not refresh until a new thread is opened.

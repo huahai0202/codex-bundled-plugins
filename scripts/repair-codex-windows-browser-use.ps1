@@ -41,7 +41,8 @@ function Get-CodexPackageResourcesPath {
     $candidates = New-Object System.Collections.Generic.List[string]
 
     try {
-        $packages = @(Get-AppxPackage -Name "OpenAI.Codex" -ErrorAction SilentlyContinue)
+        $packages = @(Get-AppxPackage -Name "OpenAI.Codex" -ErrorAction SilentlyContinue |
+            Sort-Object Version -Descending)
         foreach ($package in $packages) {
             if ($package.InstallLocation) {
                 $candidates.Add((Join-Path $package.InstallLocation "app\resources"))
