@@ -8,13 +8,43 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$HelperBinaries = @(
+    [pscustomobject]@{
+        Source = "node.exe"
+        DestinationDirectory = "5b9024f90663758b"
+        DestinationFile = "node.exe"
+    },
+    [pscustomobject]@{
+        Source = "codex.exe"
+        DestinationDirectory = "76ac88818493fc45"
+        DestinationFile = "codex.exe"
+    },
+    [pscustomobject]@{
+        Source = "codex-command-runner.exe"
+        DestinationDirectory = "76ac88818493fc45"
+        DestinationFile = "codex-command-runner.exe"
+    },
+    [pscustomobject]@{
+        Source = "codex-windows-sandbox-setup.exe"
+        DestinationDirectory = "76ac88818493fc45"
+        DestinationFile = "codex-windows-sandbox-setup.exe"
+    },
+    [pscustomobject]@{
+        Source = "node_repl.exe"
+        DestinationDirectory = "46831e373630ff93"
+        DestinationFile = "node_repl.exe"
+    },
+    [pscustomobject]@{
+        Source = "rg.exe"
+        DestinationDirectory = "ada252862d154cdd"
+        DestinationFile = "rg.exe"
+    }
+)
+
 $RequiredFiles = @(
-    "codex.exe",
-    "node.exe",
-    "node_repl.exe",
-    "codex-command-runner.exe",
-    "codex-windows-sandbox-setup.exe",
-    "rg.exe"
+    $HelperBinaries |
+        ForEach-Object { $_.Source } |
+        Select-Object -Unique
 )
 
 function Test-RequiredFiles {
@@ -100,6 +130,21 @@ function Copy-FileStream {
     Move-Item -LiteralPath $tmp -Destination $Destination -Force
 }
 
+function Get-HelperDestinationRelativePath {
+    param([Parameter(Mandatory = $true)]$Helper)
+
+    return (Join-Path $Helper.DestinationDirectory $Helper.DestinationFile)
+}
+
+function Get-HelperDestinationPath {
+    param(
+        [Parameter(Mandatory = $true)]$Helper,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+
+    return (Join-Path $Root (Get-HelperDestinationRelativePath -Helper $Helper))
+}
+
 function Get-FileState {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
@@ -133,10 +178,14 @@ $sourceDir = Get-CodexPackageResourcesPath
 New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
+$destinationBySource = @{}
 
-foreach ($file in $RequiredFiles) {
-    $source = Join-Path $sourceDir $file
-    $destination = Join-Path $DestinationDir $file
+foreach ($helper in $HelperBinaries) {
+    $source = Join-Path $sourceDir $helper.Source
+    $destination = Get-HelperDestinationPath -Helper $helper -Root $DestinationDir
+    $relativeDestination = Get-HelperDestinationRelativePath -Helper $helper
+    $destinationBySource[$helper.Source] = $destination
+
     $state = Get-FileState -Source $source -Destination $destination
     $needsCopy = $Force -or (-not $state.destExists) -or (-not $state.sameHash)
     $action = if ($needsCopy) { if ($DryRun) { "would-copy" } else { "copied" } } else { "skipped" }
@@ -147,7 +196,8 @@ foreach ($file in $RequiredFiles) {
     }
 
     $results.Add([pscustomobject]@{
-        file = $file
+        file = $helper.Source
+        destination = $relativeDestination
         action = $action
         sourceLength = $state.sourceLength
         destExists = $state.destExists
@@ -159,10 +209,10 @@ foreach ($file in $RequiredFiles) {
 $validation = [ordered]@{}
 
 if (-not $DryRun) {
-    $nodePath = Join-Path $DestinationDir "node.exe"
-    $codexPath = Join-Path $DestinationDir "codex.exe"
-    $nodeReplPath = Join-Path $DestinationDir "node_repl.exe"
-    $rgPath = Join-Path $DestinationDir "rg.exe"
+    $nodePath = $destinationBySource["node.exe"]
+    $codexPath = $destinationBySource["codex.exe"]
+    $nodeReplPath = $destinationBySource["node_repl.exe"]
+    $rgPath = $destinationBySource["rg.exe"]
 
     $validation.nodeVersion = (& $nodePath --version) -join "`n"
     $validation.codexVersion = (& $codexPath --version) -join "`n"

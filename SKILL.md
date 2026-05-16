@@ -47,14 +47,14 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    source = '\\?\C:\Users\<user>\.codex\.tmp\bundled-marketplaces\openai-bundled'
    ```
 
-6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources. Copy only this fixed helper binary set:
+6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources using Codex's hashed helper subdirectory layout. Copy only this fixed helper binary set:
 
-   - `codex.exe`
-   - `node.exe`
-   - `node_repl.exe`
-   - `codex-command-runner.exe`
-   - `codex-windows-sandbox-setup.exe`
-   - `rg.exe`
+   - `5b9024f90663758b\node.exe`
+   - `76ac88818493fc45\codex.exe`
+   - `76ac88818493fc45\codex-command-runner.exe`
+   - `76ac88818493fc45\codex-windows-sandbox-setup.exe`
+   - `46831e373630ff93\node_repl.exe`
+   - `ada252862d154cdd\rg.exe`
 
    Never copy the entire `app\resources` directory into `%LOCALAPPDATA%\OpenAI\Codex\bin`; it contains application resources and plugin trees that do not belong in the helper binary cache.
    Do not modify Chrome profiles, cookies, passwords, session stores, or native host manifests.
