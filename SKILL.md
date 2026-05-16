@@ -28,10 +28,10 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    app\resources\plugins\openai-bundled
    ```
 
-4. Replace the bundled marketplace at the stable user path with a fresh copy from the newest package:
+4. Replace the bundled marketplace at the temporary bundled-marketplaces path with a fresh copy from the newest package:
 
    ```text
-   C:\Users\<user>\.codex\plugins\openai-bundled
+   C:\Users\<user>\.codex\.tmp\bundled-marketplaces\openai-bundled
    ```
 
    On Windows, prefer staging the copy into a temporary directory with `xcopy.exe /G /Q`, validating that `.agents\plugins\marketplace.json` exists, then replacing the destination directory. This avoids stale plugin files after Codex updates. WindowsApps plugin files may be encrypted/protected and `Copy-Item` or `robocopy` can fail with `ERROR 6000: The specified file could not be encrypted`.
@@ -44,7 +44,7 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
 
    [marketplaces.openai-bundled]
    source_type = "local"
-   source = '\\?\C:\Users\<user>\.codex\plugins\openai-bundled'
+   source = '\\?\C:\Users\<user>\.codex\.tmp\bundled-marketplaces\openai-bundled'
    ```
 
 6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources. Copy only this fixed helper binary set:
@@ -69,7 +69,7 @@ Run the bundled script for the common case:
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1
 ```
 
-The script backs up `config.toml` before editing, replaces the local bundled marketplace with the newest bundled marketplace, and preserves existing config entries.
+The script backs up `config.toml` before editing, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with the newest bundled marketplace, and preserves existing config entries.
 
 Use `-EnableBundledPlugins` only when the user wants every plugin listed in the bundled marketplace marked enabled immediately:
 

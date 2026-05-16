@@ -22,7 +22,7 @@ This skill exists for Windows users who run into plugin marketplace failures, mi
 
 The skill provides two focused recovery flows:
 
-- **Marketplace sync** copies the newest bundled marketplace from the installed Codex Desktop WindowsApps package into `%USERPROFILE%\.codex\plugins\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml`.
+- **Marketplace sync** copies the newest bundled marketplace from the installed Codex Desktop WindowsApps package into `%USERPROFILE%\.codex\.tmp\bundled-marketplaces\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml`.
 - **Helper repair** copies only the required browser helper binaries into `%LOCALAPPDATA%\OpenAI\Codex\bin`.
 
 It does **not** modify Chrome profiles, cookies, passwords, browser session stores, or native host manifests.
@@ -81,7 +81,7 @@ To also mark every bundled plugin as enabled:
 powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1" -EnableBundledPlugins
 ```
 
-The script backs up `config.toml`, replaces the local bundled marketplace with a fresh copy, and preserves existing config entries.
+The script backs up `config.toml`, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with a fresh copy, and preserves existing config entries.
 
 ### Repair Browser Use / Chrome helpers
 

@@ -37,8 +37,8 @@ function Ensure-Section {
 
 $codexHome = Join-Path $env:USERPROFILE ".codex"
 $configPath = Join-Path $codexHome "config.toml"
-$dest = Join-Path $codexHome "plugins\openai-bundled"
-$pluginsRoot = Split-Path -Parent $dest
+$destRoot = Join-Path $codexHome ".tmp\bundled-marketplaces"
+$dest = Join-Path $destRoot "openai-bundled"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 
 function Test-BundledMarketplace {
@@ -89,10 +89,10 @@ if (-not (Test-Path -LiteralPath $marketplaceJson)) {
   throw "Bundled marketplace not found at: $marketplaceJson"
 }
 
-New-Item -ItemType Directory -Force -Path $pluginsRoot | Out-Null
+New-Item -ItemType Directory -Force -Path $destRoot | Out-Null
 
-$tempDest = Join-Path $pluginsRoot "openai-bundled.tmp-$timestamp"
-$oldDest = Join-Path $pluginsRoot "openai-bundled.old-$timestamp"
+$tempDest = Join-Path $destRoot "openai-bundled.tmp-$timestamp"
+$oldDest = Join-Path $destRoot "openai-bundled.old-$timestamp"
 $sourceGlob = Join-Path $sourceRoot "*"
 
 if (Test-Path -LiteralPath $tempDest) {
