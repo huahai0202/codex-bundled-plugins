@@ -23,7 +23,7 @@ This skill exists for Windows users who run into plugin marketplace failures, mi
 The skill provides two focused recovery flows:
 
 - **Marketplace sync** copies the newest bundled marketplace from the installed Codex Desktop WindowsApps package into `%USERPROFILE%\.codex\.tmp\bundled-marketplaces\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml`.
-- **Helper repair** copies only the required browser helper binaries into Codex's hashed helper subdirectories under `%LOCALAPPDATA%\OpenAI\Codex\bin`.
+- **Helper repair** copies only the required browser helper binaries into Codex's hashed helper subdirectories under `%LOCALAPPDATA%\OpenAI\Codex\bin`, recalculating the hash directory names from the current packaged files each time.
 
 It does **not** modify Chrome profiles, cookies, passwords, browser session stores, or native host manifests.
 
@@ -119,7 +119,8 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-b
 
 - The marketplace sync prefers `Get-AppxPackage -Name OpenAI.Codex`, then falls back to scanning `OpenAI.Codex_*` package directories under `C:\Program Files\WindowsApps`.
 - The scripts validate resources before using a package, so they do not depend on a fixed architecture or package family suffix.
-- The helper repair copies only this fixed binary set into hashed helper subdirectories: `5b9024f90663758b\node.exe`, `76ac88818493fc45\codex.exe`, `76ac88818493fc45\codex-command-runner.exe`, `76ac88818493fc45\codex-windows-sandbox-setup.exe`, `46831e373630ff93\node_repl.exe`, and `ada252862d154cdd\rg.exe`.
+- The helper repair copies only the required helper binary groups into hashed helper subdirectories: `node.exe`; `codex.exe`, `codex-windows-sandbox-setup.exe`, and `codex-command-runner.exe`; `node_repl.exe`; and `rg.exe`.
+- The helper repair does not hard-code hash directory names. It calculates each directory as the first 16 hex characters of `sha256(file_name + NUL + sha256(file_bytes).hex_lower + NUL)` for each file in the group, matching Codex's relocation behavior after app updates.
 - The scripts avoid copying the entire Codex `app\resources` directory into the helper cache.
 - Restart Codex Desktop after running a repair. The current thread's available tool list may not refresh until a new thread is opened.
 

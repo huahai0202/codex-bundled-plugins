@@ -8,44 +8,123 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$HelperBinaries = @(
+$HelperGroups = @(
     [pscustomobject]@{
-        Source = "node.exe"
-        DestinationDirectory = "5b9024f90663758b"
-        DestinationFile = "node.exe"
+        Primary = "node.exe"
+        Files = @("node.exe")
     },
     [pscustomobject]@{
-        Source = "codex.exe"
-        DestinationDirectory = "76ac88818493fc45"
-        DestinationFile = "codex.exe"
+        Primary = "codex.exe"
+        Files = @(
+            "codex.exe",
+            "codex-windows-sandbox-setup.exe",
+            "codex-command-runner.exe"
+        )
     },
     [pscustomobject]@{
-        Source = "codex-command-runner.exe"
-        DestinationDirectory = "76ac88818493fc45"
-        DestinationFile = "codex-command-runner.exe"
+        Primary = "node_repl.exe"
+        Files = @("node_repl.exe")
     },
     [pscustomobject]@{
-        Source = "codex-windows-sandbox-setup.exe"
-        DestinationDirectory = "76ac88818493fc45"
-        DestinationFile = "codex-windows-sandbox-setup.exe"
-    },
-    [pscustomobject]@{
-        Source = "node_repl.exe"
-        DestinationDirectory = "46831e373630ff93"
-        DestinationFile = "node_repl.exe"
-    },
-    [pscustomobject]@{
-        Source = "rg.exe"
-        DestinationDirectory = "ada252862d154cdd"
-        DestinationFile = "rg.exe"
+        Primary = "rg.exe"
+        Files = @("rg.exe")
     }
 )
 
 $RequiredFiles = @(
-    $HelperBinaries |
-        ForEach-Object { $_.Source } |
+    $HelperGroups |
+        ForEach-Object { $_.Files } |
         Select-Object -Unique
 )
+
+function Convert-BytesToHex {
+    param([Parameter(Mandatory = $true)][byte[]]$Bytes)
+
+    return (($Bytes | ForEach-Object { $_.ToString("x2") }) -join "")
+}
+
+function Get-FileSha256Hex {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            return (Convert-BytesToHex -Bytes ($sha.ComputeHash($stream)))
+        } finally {
+            $sha.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
+function Get-CodexHelperDirectoryName {
+    param([Parameter(Mandatory = $true)][object[]]$Files)
+
+    $payloadBuilder = New-Object System.Text.StringBuilder
+    foreach ($file in $Files) {
+        [void]$payloadBuilder.Append($file.Name)
+        [void]$payloadBuilder.Append("`0")
+        [void]$payloadBuilder.Append($file.Digest)
+        [void]$payloadBuilder.Append("`0")
+    }
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payloadBuilder.ToString())
+        return (Convert-BytesToHex -Bytes ($sha.ComputeHash($payloadBytes))).Substring(0, 16)
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-HelperFileMetadata {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceDir,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $sourcePath = Join-Path $SourceDir $Name
+    $sourceItem = Get-Item -LiteralPath $sourcePath -ErrorAction Stop
+    if (-not $sourceItem.PSIsContainer -and $sourceItem.Length -ge 0) {
+        return [pscustomobject]@{
+            Name = $Name
+            SourcePath = $sourcePath
+            Digest = Get-FileSha256Hex -Path $sourcePath
+            Size = $sourceItem.Length
+        }
+    }
+
+    throw "Required helper source is not a file: $sourcePath"
+}
+
+function Resolve-HelperBinaries {
+    param([Parameter(Mandatory = $true)][string]$SourceDir)
+
+    $helpers = New-Object System.Collections.Generic.List[object]
+    foreach ($group in $HelperGroups) {
+        $fileMetadata = @(
+            $group.Files | ForEach-Object {
+                Get-HelperFileMetadata -SourceDir $SourceDir -Name $_
+            }
+        )
+        $destinationDirectory = Get-CodexHelperDirectoryName -Files $fileMetadata
+
+        foreach ($file in $fileMetadata) {
+            $helpers.Add([pscustomobject]@{
+                Source = $file.Name
+                SourceDigest = $file.Digest
+                SourceSize = $file.Size
+                DestinationDirectory = $destinationDirectory
+                DestinationFile = $file.Name
+                GroupPrimary = $group.Primary
+            })
+        }
+    }
+
+    return $helpers
+}
 
 function Test-RequiredFiles {
     param([Parameter(Mandatory = $true)][string]$Directory)
@@ -152,29 +231,33 @@ function Get-FileState {
     )
 
     $sourceItem = Get-Item -LiteralPath $Source -ErrorAction Stop
+    $sourceHash = Get-FileSha256Hex -Path $Source
     $destExists = Test-Path -LiteralPath $Destination
     $destLength = $null
+    $destHash = $null
     $sameHash = $false
 
     if ($destExists) {
         $destItem = Get-Item -LiteralPath $Destination -ErrorAction Stop
         $destLength = $destItem.Length
         if ($sourceItem.Length -eq $destItem.Length) {
-            $sourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Source).Hash
-            $destHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $Destination).Hash
+            $destHash = Get-FileSha256Hex -Path $Destination
             $sameHash = ($sourceHash -eq $destHash)
         }
     }
 
     [pscustomobject]@{
         sourceLength = $sourceItem.Length
+        sourceHash = $sourceHash
         destExists = $destExists
         destLength = $destLength
+        destHash = $destHash
         sameHash = $sameHash
     }
 }
 
 $sourceDir = Get-CodexPackageResourcesPath
+$HelperBinaries = Resolve-HelperBinaries -SourceDir $sourceDir
 New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
@@ -198,10 +281,13 @@ foreach ($helper in $HelperBinaries) {
     $results.Add([pscustomobject]@{
         file = $helper.Source
         destination = $relativeDestination
+        hashDirectory = $helper.DestinationDirectory
         action = $action
         sourceLength = $state.sourceLength
+        sourceHash = $state.sourceHash
         destExists = $state.destExists
         destLength = $state.destLength
+        destHash = $state.destHash
         sameHash = $state.sameHash
     })
 }

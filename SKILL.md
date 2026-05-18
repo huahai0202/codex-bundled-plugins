@@ -47,14 +47,22 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    source = '\\?\C:\Users\<user>\.codex\.tmp\bundled-marketplaces\openai-bundled'
    ```
 
-6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources using Codex's hashed helper subdirectory layout. Copy only this fixed helper binary set:
+6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources using Codex's hashed helper subdirectory layout. Copy only these helper binary groups:
 
-   - `5b9024f90663758b\node.exe`
-   - `76ac88818493fc45\codex.exe`
-   - `76ac88818493fc45\codex-command-runner.exe`
-   - `76ac88818493fc45\codex-windows-sandbox-setup.exe`
-   - `46831e373630ff93\node_repl.exe`
-   - `ada252862d154cdd\rg.exe`
+   - `node.exe`
+   - `codex.exe`, `codex-windows-sandbox-setup.exe`, and `codex-command-runner.exe` in one shared group
+   - `node_repl.exe`
+   - `rg.exe`
+
+   Do not hard-code the hash directory names. For each group, calculate the destination folder from the current package files using Codex's relocation algorithm:
+
+   ```text
+   file_digest = sha256(file_bytes).hex_lower
+   group_hash = sha256(file_name + NUL + file_digest + NUL for each file in group order).hex_lower
+   destination_directory = first 16 hex characters of group_hash
+   ```
+
+   Use group order exactly as Codex does: `codex.exe`, `codex-windows-sandbox-setup.exe`, then `codex-command-runner.exe`. Single-file groups contain only that file. Recalculate this folder name every time files are refreshed so Codex updates automatically move helpers into the new hash directory.
 
    Never copy the entire `app\resources` directory into `%LOCALAPPDATA%\OpenAI\Codex\bin`; it contains application resources and plugin trees that do not belong in the helper binary cache.
    Do not modify Chrome profiles, cookies, passwords, session stores, or native host manifests.
