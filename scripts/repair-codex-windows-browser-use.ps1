@@ -256,18 +256,93 @@ function Get-FileState {
     }
 }
 
+function Get-NormalizedFullPath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $trimChars = [char[]]@(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+
+    return ([System.IO.Path]::GetFullPath($Path)).TrimEnd($trimChars)
+}
+
+function Test-PathIsUnderDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Directory
+    )
+
+    $normalizedPath = Get-NormalizedFullPath -Path $Path
+    $normalizedDirectory = Get-NormalizedFullPath -Path $Directory
+    $prefix = $normalizedDirectory + [System.IO.Path]::DirectorySeparatorChar
+
+    return $normalizedPath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Remove-StaleHashDirectories {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][hashtable]$CurrentHashDirectories,
+        [Parameter(Mandatory = $true)][bool]$DryRun
+    )
+
+    $cleanup = New-Object System.Collections.Generic.List[object]
+    if (-not (Test-Path -LiteralPath $Root)) {
+        return $cleanup
+    }
+
+    $rootPath = (Resolve-Path -LiteralPath $Root -ErrorAction Stop).Path
+    $staleDirectories = @(
+        Get-ChildItem -Directory -LiteralPath $rootPath -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.Name -match "^[0-9a-fA-F]{16}$") -and
+                (-not $CurrentHashDirectories.ContainsKey($_.Name.ToLowerInvariant()))
+            }
+    )
+
+    foreach ($directory in $staleDirectories) {
+        $entry = [ordered]@{
+            directory = $directory.Name
+            reason = "stale-hash-directory"
+        }
+
+        if (-not (Test-PathIsUnderDirectory -Path $directory.FullName -Directory $rootPath)) {
+            $entry.action = "skipped-outside-destination"
+        } elseif (($directory.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            $entry.action = "skipped-reparse-point"
+        } elseif ($DryRun) {
+            $entry.action = "would-remove"
+        } else {
+            try {
+                Remove-Item -LiteralPath $directory.FullName -Recurse -Force -ErrorAction Stop
+                $entry.action = "removed"
+            } catch {
+                $entry.action = "failed-remove"
+                $entry.error = $_.Exception.Message
+            }
+        }
+
+        $cleanup.Add([pscustomobject]$entry)
+    }
+
+    return $cleanup
+}
+
 $sourceDir = Get-CodexPackageResourcesPath
 $HelperBinaries = Resolve-HelperBinaries -SourceDir $sourceDir
 New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
 $destinationBySource = @{}
+$currentHashDirectories = @{}
 
 foreach ($helper in $HelperBinaries) {
     $source = Join-Path $sourceDir $helper.Source
     $destination = Get-HelperDestinationPath -Helper $helper -Root $DestinationDir
     $relativeDestination = Get-HelperDestinationRelativePath -Helper $helper
     $destinationBySource[$helper.Source] = $destination
+    $currentHashDirectories[$helper.DestinationDirectory.ToLowerInvariant()] = $true
 
     $state = Get-FileState -Source $source -Destination $destination
     $needsCopy = $Force -or (-not $state.destExists) -or (-not $state.sameHash)
@@ -292,6 +367,7 @@ foreach ($helper in $HelperBinaries) {
     })
 }
 
+$cleanup = @(Remove-StaleHashDirectories -Root $DestinationDir -CurrentHashDirectories $currentHashDirectories -DryRun ([bool]$DryRun))
 $validation = [ordered]@{}
 
 if (-not $DryRun) {
@@ -312,6 +388,7 @@ if (-not $DryRun) {
     dryRun = [bool]$DryRun
     force = [bool]$Force
     files = $results
+    cleanup = $cleanup
     validation = $validation
     nextStep = "Fully restart Codex, then retry Browser Use or @chrome in a new thread."
 } | ConvertTo-Json -Depth 5

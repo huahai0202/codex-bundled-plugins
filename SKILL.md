@@ -64,6 +64,8 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
 
    Use group order exactly as Codex does: `codex.exe`, `codex-windows-sandbox-setup.exe`, then `codex-command-runner.exe`. Single-file groups contain only that file. Recalculate this folder name every time files are refreshed so Codex updates automatically move helpers into the new hash directory.
 
+   After ensuring the current hash directories are populated, remove stale 16-character hexadecimal hash directories under `%LOCALAPPDATA%\OpenAI\Codex\bin` that are not required by the current package. In dry-run mode, report them as `would-remove` without deleting them. Leave non-hash files and directories untouched.
+
    Never copy the entire `app\resources` directory into `%LOCALAPPDATA%\OpenAI\Codex\bin`; it contains application resources and plugin trees that do not belong in the helper binary cache.
    Do not modify Chrome profiles, cookies, passwords, session stores, or native host manifests.
 
