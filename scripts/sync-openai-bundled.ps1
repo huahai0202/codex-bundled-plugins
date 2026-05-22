@@ -35,6 +35,34 @@ function Ensure-Section {
   return $Content.TrimEnd() + "`r`n" + $newBlock
 }
 
+function Remove-WindowsElevatedSandboxSetting {
+  param([string]$Content)
+
+  if ($null -eq $Content) {
+    return ""
+  }
+
+  $sectionPattern = "(?ms)^\[windows\]\s*.*?(?=^\[|\z)"
+  if ($Content -notmatch $sectionPattern) {
+    return $Content
+  }
+
+  $block = $Matches[0]
+  $settingPattern = "(?m)^\s*sandbox\s*=\s*(?:`"elevated`"|'elevated'|elevated)\s*(?:#.*)?\r?\n?"
+  $updatedBlock = [regex]::Replace($block, $settingPattern, "")
+
+  if ($updatedBlock -eq $block) {
+    return $Content
+  }
+
+  if ($updatedBlock -match "(?ms)^\[windows\]\s*$") {
+    return [regex]::Replace($Content, $sectionPattern, "")
+  }
+
+  $updatedBlock = $updatedBlock.TrimEnd() + "`r`n"
+  return [regex]::Replace($Content, $sectionPattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $updatedBlock })
+}
+
 $codexHome = Join-Path $env:USERPROFILE ".codex"
 $configPath = Join-Path $codexHome "config.toml"
 $destRoot = Join-Path $codexHome ".tmp\bundled-marketplaces"
@@ -176,6 +204,10 @@ if ($EnableBundledPlugins) {
   }
 }
 
+$beforeSandboxCleanup = $content
+$content = Remove-WindowsElevatedSandboxSetting -Content $content
+$removedElevatedSandbox = ($content -ne $beforeSandboxCleanup)
+
 Set-Content -LiteralPath $configPath -Value $content -Encoding UTF8
 
 Write-Host ""
@@ -187,6 +219,11 @@ Write-Host "Registered marketplace in:"
 Write-Host "  $configPath"
 Write-Host "Backup:"
 Write-Host "  $backupPath"
+if ($removedElevatedSandbox) {
+  Write-Host "Removed temporary Windows elevated sandbox setting from config.toml."
+} else {
+  Write-Host "No Windows elevated sandbox setting was present in config.toml."
+}
 Write-Host "Plugins in marketplace:"
 Write-Host "  $($pluginNames -join ', ')"
 if ($EnableBundledPlugins) {
@@ -197,4 +234,5 @@ if ($EnableBundledPlugins) {
   Write-Host "Re-run with -EnableBundledPlugins to enable every plugin in the bundled marketplace."
 }
 Write-Host ""
+Write-Host "Reminder: quit Codex, Chrome, and extension-host.exe; delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled; then reinstall the bundled plugins in the app."
 Write-Host "Restart Codex desktop to reload plugin marketplaces."

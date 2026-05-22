@@ -329,6 +329,75 @@ function Remove-StaleHashDirectories {
     return $cleanup
 }
 
+function Remove-WindowsElevatedSandboxSetting {
+    param([string]$Content)
+
+    if ($null -eq $Content) {
+        return ""
+    }
+
+    $sectionPattern = "(?ms)^\[windows\]\s*.*?(?=^\[|\z)"
+    if ($Content -notmatch $sectionPattern) {
+        return $Content
+    }
+
+    $block = $Matches[0]
+    $settingPattern = "(?m)^\s*sandbox\s*=\s*(?:`"elevated`"|'elevated'|elevated)\s*(?:#.*)?\r?\n?"
+    $updatedBlock = [regex]::Replace($block, $settingPattern, "")
+
+    if ($updatedBlock -eq $block) {
+        return $Content
+    }
+
+    if ($updatedBlock -match "(?ms)^\[windows\]\s*$") {
+        return [regex]::Replace($Content, $sectionPattern, "")
+    }
+
+    $updatedBlock = $updatedBlock.TrimEnd() + "`r`n"
+    return [regex]::Replace($Content, $sectionPattern, [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $updatedBlock })
+}
+
+function Remove-WindowsElevatedSandboxSettingFromConfig {
+    param([Parameter(Mandatory = $true)][bool]$DryRun)
+
+    $codexHome = Join-Path $env:USERPROFILE ".codex"
+    $configPath = Join-Path $codexHome "config.toml"
+    $result = [ordered]@{
+        path = $configPath
+        action = "skipped-missing-config"
+        backup = $null
+    }
+
+    if (-not (Test-Path -LiteralPath $configPath)) {
+        return [pscustomobject]$result
+    }
+
+    $content = Get-Content -LiteralPath $configPath -Raw
+    if ($null -eq $content) {
+        $content = ""
+    }
+
+    $updatedContent = Remove-WindowsElevatedSandboxSetting -Content $content
+    if ($updatedContent -eq $content) {
+        $result.action = "skipped-not-present"
+        return [pscustomobject]$result
+    }
+
+    if ($DryRun) {
+        $result.action = "would-remove"
+        return [pscustomobject]$result
+    }
+
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $backupPath = "$configPath.bak-windows-sandbox-$timestamp"
+    Copy-Item -LiteralPath $configPath -Destination $backupPath -Force
+    Set-Content -LiteralPath $configPath -Value $updatedContent -Encoding UTF8
+
+    $result.action = "removed"
+    $result.backup = $backupPath
+    return [pscustomobject]$result
+}
+
 $sourceDir = Get-CodexPackageResourcesPath
 $HelperBinaries = Resolve-HelperBinaries -SourceDir $sourceDir
 New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
@@ -368,6 +437,7 @@ foreach ($helper in $HelperBinaries) {
 }
 
 $cleanup = @(Remove-StaleHashDirectories -Root $DestinationDir -CurrentHashDirectories $currentHashDirectories -DryRun ([bool]$DryRun))
+$configCleanup = Remove-WindowsElevatedSandboxSettingFromConfig -DryRun ([bool]$DryRun)
 $validation = [ordered]@{}
 
 if (-not $DryRun) {
@@ -389,6 +459,7 @@ if (-not $DryRun) {
     force = [bool]$Force
     files = $results
     cleanup = $cleanup
+    configCleanup = $configCleanup
     validation = $validation
-    nextStep = "Fully restart Codex, then retry Browser Use or @chrome in a new thread."
+    nextStep = "Quit Codex, Chrome, and extension-host.exe; delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled; reinstall the bundled plugins in the app; then retry Browser Use or @chrome in a new thread."
 } | ConvertTo-Json -Depth 5

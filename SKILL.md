@@ -69,7 +69,15 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    Never copy the entire `app\resources` directory into `%LOCALAPPDATA%\OpenAI\Codex\bin`; it contains application resources and plugin trees that do not belong in the helper binary cache.
    Do not modify Chrome profiles, cookies, passwords, session stores, or native host manifests.
 
-7. Ask the user to fully quit and restart Codex desktop. The current thread's available tool list may not refresh until a new thread starts.
+7. After the recovery commands finish, remove the temporary elevated Windows sandbox setting from `%USERPROFILE%\.codex\config.toml` if present:
+
+   ```toml
+   [windows]
+   sandbox = "elevated"
+   ```
+
+   Remove only that `sandbox = "elevated"` entry. Leave other `[windows]` settings intact, and remove the `[windows]` section only if it becomes empty.
+8. Remind the user to fully quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; then reinstall the bundled plugins inside the Codex app. The current thread's available tool list may not refresh until a new thread starts.
 
 ## Marketplace Script
 
@@ -79,7 +87,7 @@ Run the bundled script for the common case:
 powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1
 ```
 
-The script backs up `config.toml` before editing, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with the newest bundled marketplace, and preserves existing config entries.
+The script backs up `config.toml` before editing, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with the newest bundled marketplace, preserves existing config entries, and removes `[windows] sandbox = "elevated"` if present.
 
 Use `-EnableBundledPlugins` only when the user wants every plugin listed in the bundled marketplace marked enabled immediately:
 
@@ -116,3 +124,5 @@ powershell -ExecutionPolicy Bypass -File %USERPROFILE%\.codex\skills\codex-bundl
 ```
 
 Prefer this script over `Copy-Item`. Microsoft Store package files under `WindowsApps` can be application-protected/encrypted, and `Copy-Item` may fail with "Cannot encrypt the specified file" even when the file is readable. The script uses stream copying so it can read the packaged helper and write a normal user-local copy.
+
+After a non-dry-run repair, the script also removes `[windows] sandbox = "elevated"` from `%USERPROFILE%\.codex\config.toml` when present. In `-DryRun` mode, it reports this as `would-remove` without editing the config.

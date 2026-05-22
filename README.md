@@ -22,8 +22,8 @@ This skill exists for Windows users who run into plugin marketplace failures, mi
 
 The skill provides two focused recovery flows:
 
-- **Marketplace sync** copies the newest bundled marketplace from the installed Codex Desktop WindowsApps package into `%USERPROFILE%\.codex\.tmp\bundled-marketplaces\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml`.
-- **Helper repair** copies only the required browser helper binaries into Codex's hashed helper subdirectories under `%LOCALAPPDATA%\OpenAI\Codex\bin`, recalculating the hash directory names from the current packaged files each time. It also removes stale 16-character hash directories that are no longer required by the current package.
+- **Marketplace sync** copies the newest bundled marketplace from the installed Codex Desktop WindowsApps package into `%USERPROFILE%\.codex\.tmp\bundled-marketplaces\openai-bundled`, then registers it in `%USERPROFILE%\.codex\config.toml` and removes `[windows] sandbox = "elevated"` if present.
+- **Helper repair** copies only the required browser helper binaries into Codex's hashed helper subdirectories under `%LOCALAPPDATA%\OpenAI\Codex\bin`, recalculating the hash directory names from the current packaged files each time. It also removes stale 16-character hash directories that are no longer required by the current package, and removes `[windows] sandbox = "elevated"` from `config.toml` after non-dry-run repairs.
 
 It does **not** modify Chrome profiles, cookies, passwords, browser session stores, or native host manifests.
 
@@ -81,7 +81,7 @@ To also mark every bundled plugin as enabled:
 powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-bundled-plugins\scripts\sync-openai-bundled.ps1" -EnableBundledPlugins
 ```
 
-The script backs up `config.toml`, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with a fresh copy, and preserves existing config entries.
+The script backs up `config.toml`, replaces the local bundled marketplace under `.codex\.tmp\bundled-marketplaces` with a fresh copy, preserves existing config entries, and removes `[windows] sandbox = "elevated"` if present.
 
 ### Repair Browser Use / Chrome helpers
 
@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-b
 - The helper repair does not hard-code hash directory names. It calculates each directory as the first 16 hex characters of `sha256(file_name + NUL + sha256(file_bytes).hex_lower + NUL)` for each file in the group, matching Codex's relocation behavior after app updates.
 - The helper repair removes stale 16-character hexadecimal hash directories after the current helper directories are populated. `-DryRun` reports those entries as `would-remove` without deleting them, and non-hash files or directories are left untouched.
 - The scripts avoid copying the entire Codex `app\resources` directory into the helper cache.
-- Restart Codex Desktop after running a repair. The current thread's available tool list may not refresh until a new thread is opened.
+- After running a repair, quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; then reinstall the bundled plugins inside the Codex app. The current thread's available tool list may not refresh until a new thread is opened.
 
 ## Why This Exists
 
