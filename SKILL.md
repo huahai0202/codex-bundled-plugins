@@ -43,9 +43,12 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    plugins = true
 
    [marketplaces.openai-bundled]
+   source = "\\\\?\\C:\\Users\\<user>\\.codex\\.tmp\\bundled-marketplaces\\openai-bundled"
    source_type = "local"
-   source = '\\?\C:\Users\<user>\.codex\.tmp\bundled-marketplaces\openai-bundled'
    ```
+
+   Use a TOML basic string with escaped backslashes for `source`; do not write this path as a single-quoted TOML literal string.
+   Preserve the config file as UTF-8 without BOM. On Windows PowerShell 5.1, do not use default `Get-Content`/`Set-Content -Encoding UTF8` for `config.toml`; read and write through explicit .NET UTF-8 byte APIs so non-ASCII text such as Chinese titles is not mojibaked and no BOM is added.
 
 6. For helper repair, populate `%LOCALAPPDATA%\OpenAI\Codex\bin` from the installed package resources using Codex's hashed helper subdirectory layout. Copy only these helper binary groups:
 

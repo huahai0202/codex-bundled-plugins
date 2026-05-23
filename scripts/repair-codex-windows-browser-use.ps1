@@ -8,6 +8,46 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function New-Utf8NoBomEncoding {
+    param([bool]$ThrowOnInvalidBytes = $false)
+
+    return [System.Text.UTF8Encoding]::new($false, $ThrowOnInvalidBytes)
+}
+
+function Read-TextFileUtf8 {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $bytes = [System.IO.File]::ReadAllBytes($LiteralPath)
+    if ($bytes.Length -eq 0) {
+        return ""
+    }
+
+    try {
+        $text = (New-Utf8NoBomEncoding -ThrowOnInvalidBytes $true).GetString($bytes)
+    } catch [System.Text.DecoderFallbackException] {
+        throw "File is not valid UTF-8 and was not edited: $LiteralPath. $($_.Exception.Message)"
+    }
+
+    if ($text.Length -gt 0 -and [int][char]$text[0] -eq 0xFEFF) {
+        return $text.Substring(1)
+    }
+
+    return $text
+}
+
+function Write-TextFileUtf8NoBom {
+    param(
+        [Parameter(Mandatory = $true)][string]$LiteralPath,
+        [AllowNull()][string]$Content
+    )
+
+    if ($null -eq $Content) {
+        $Content = ""
+    }
+
+    [System.IO.File]::WriteAllText($LiteralPath, $Content, (New-Utf8NoBomEncoding))
+}
+
 $HelperGroups = @(
     [pscustomobject]@{
         Primary = "node.exe"
@@ -342,14 +382,14 @@ function Remove-WindowsElevatedSandboxSetting {
     }
 
     $block = $Matches[0]
-    $settingPattern = "(?m)^\s*sandbox\s*=\s*(?:`"elevated`"|'elevated'|elevated)\s*(?:#.*)?\r?\n?"
+    $settingPattern = "(?m)^[^\S\r\n]*sandbox[^\S\r\n]*=[^\S\r\n]*(?:`"elevated`"|'elevated'|elevated)[^\S\r\n]*(?:#.*)?\r?\n?"
     $updatedBlock = [regex]::Replace($block, $settingPattern, "")
 
     if ($updatedBlock -eq $block) {
         return $Content
     }
 
-    if ($updatedBlock -match "(?ms)^\[windows\]\s*$") {
+    if ($updatedBlock -match "^\[windows\]\s*\z") {
         return [regex]::Replace($Content, $sectionPattern, "")
     }
 
@@ -372,7 +412,7 @@ function Remove-WindowsElevatedSandboxSettingFromConfig {
         return [pscustomobject]$result
     }
 
-    $content = Get-Content -LiteralPath $configPath -Raw
+    $content = Read-TextFileUtf8 -LiteralPath $configPath
     if ($null -eq $content) {
         $content = ""
     }
@@ -391,7 +431,7 @@ function Remove-WindowsElevatedSandboxSettingFromConfig {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $backupPath = "$configPath.bak-windows-sandbox-$timestamp"
     Copy-Item -LiteralPath $configPath -Destination $backupPath -Force
-    Set-Content -LiteralPath $configPath -Value $updatedContent -Encoding UTF8
+    Write-TextFileUtf8NoBom -LiteralPath $configPath -Content $updatedContent
 
     $result.action = "removed"
     $result.backup = $backupPath

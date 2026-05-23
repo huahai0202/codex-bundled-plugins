@@ -4,11 +4,51 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function New-Utf8NoBomEncoding {
+  param([bool]$ThrowOnInvalidBytes = $false)
+
+  return [System.Text.UTF8Encoding]::new($false, $ThrowOnInvalidBytes)
+}
+
+function Read-TextFileUtf8 {
+  param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+  $bytes = [System.IO.File]::ReadAllBytes($LiteralPath)
+  if ($bytes.Length -eq 0) {
+    return ""
+  }
+
+  try {
+    $text = (New-Utf8NoBomEncoding -ThrowOnInvalidBytes $true).GetString($bytes)
+  } catch [System.Text.DecoderFallbackException] {
+    throw "File is not valid UTF-8 and was not edited: $LiteralPath. $($_.Exception.Message)"
+  }
+
+  if ($text.Length -gt 0 -and [int][char]$text[0] -eq 0xFEFF) {
+    return $text.Substring(1)
+  }
+
+  return $text
+}
+
+function Write-TextFileUtf8NoBom {
+  param(
+    [Parameter(Mandatory = $true)][string]$LiteralPath,
+    [AllowNull()][string]$Content
+  )
+
+  if ($null -eq $Content) {
+    $Content = ""
+  }
+
+  [System.IO.File]::WriteAllText($LiteralPath, $Content, (New-Utf8NoBomEncoding))
+}
+
 function Ensure-Section {
   param(
     [string]$Content,
     [string]$Section,
-    [hashtable]$Entries
+    [System.Collections.IDictionary]$Entries
   )
 
   $escapedSection = [regex]::Escape($Section)
@@ -35,6 +75,17 @@ function Ensure-Section {
   return $Content.TrimEnd() + "`r`n" + $newBlock
 }
 
+function ConvertTo-TomlBasicString {
+  param([AllowNull()][string]$Value)
+
+  if ($null -eq $Value) {
+    $Value = ""
+  }
+
+  $escaped = $Value.Replace('\', '\\').Replace('"', '\"')
+  return '"' + $escaped + '"'
+}
+
 function Remove-WindowsElevatedSandboxSetting {
   param([string]$Content)
 
@@ -48,14 +99,14 @@ function Remove-WindowsElevatedSandboxSetting {
   }
 
   $block = $Matches[0]
-  $settingPattern = "(?m)^\s*sandbox\s*=\s*(?:`"elevated`"|'elevated'|elevated)\s*(?:#.*)?\r?\n?"
+  $settingPattern = "(?m)^[^\S\r\n]*sandbox[^\S\r\n]*=[^\S\r\n]*(?:`"elevated`"|'elevated'|elevated)[^\S\r\n]*(?:#.*)?\r?\n?"
   $updatedBlock = [regex]::Replace($block, $settingPattern, "")
 
   if ($updatedBlock -eq $block) {
     return $Content
   }
 
-  if ($updatedBlock -match "(?ms)^\[windows\]\s*$") {
+  if ($updatedBlock -match "^\[windows\]\s*\z") {
     return [regex]::Replace($Content, $sectionPattern, "")
   }
 
@@ -166,13 +217,13 @@ try {
 
 if (-not (Test-Path -LiteralPath $configPath)) {
   New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
-  Set-Content -LiteralPath $configPath -Value "" -Encoding UTF8
+  Write-TextFileUtf8NoBom -LiteralPath $configPath -Content ""
 }
 
 $backupPath = "$configPath.bak-openai-bundled-$timestamp"
 Copy-Item -LiteralPath $configPath -Destination $backupPath -Force
 
-$content = Get-Content -LiteralPath $configPath -Raw
+$content = Read-TextFileUtf8 -LiteralPath $configPath
 if ($null -eq $content) {
   $content = ""
 }
@@ -182,13 +233,13 @@ $content = Ensure-Section -Content $content -Section "features" -Entries @{
 }
 
 $stableSource = "\\?\$dest"
-$stableSource = $stableSource -replace "'", "''"
-$content = Ensure-Section -Content $content -Section "marketplaces.openai-bundled" -Entries @{
+$content = Ensure-Section -Content $content -Section "marketplaces.openai-bundled" -Entries ([ordered]@{
+  "source" = ConvertTo-TomlBasicString -Value $stableSource
   "source_type" = '"local"'
-  "source" = "'$stableSource'"
 }
+)
 
-$marketplace = Get-Content -LiteralPath (Join-Path $dest ".agents\plugins\marketplace.json") -Raw | ConvertFrom-Json
+$marketplace = Read-TextFileUtf8 -LiteralPath (Join-Path $dest ".agents\plugins\marketplace.json") | ConvertFrom-Json
 $pluginNames = @(
   $marketplace.plugins |
     ForEach-Object { $_.name } |
@@ -208,7 +259,7 @@ $beforeSandboxCleanup = $content
 $content = Remove-WindowsElevatedSandboxSetting -Content $content
 $removedElevatedSandbox = ($content -ne $beforeSandboxCleanup)
 
-Set-Content -LiteralPath $configPath -Value $content -Encoding UTF8
+Write-TextFileUtf8NoBom -LiteralPath $configPath -Content $content
 
 Write-Host ""
 Write-Host "Synced bundled marketplace from:"
