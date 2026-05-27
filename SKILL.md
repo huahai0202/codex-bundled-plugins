@@ -80,7 +80,17 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
    ```
 
    Remove only that `sandbox = "elevated"` entry. Leave other `[windows]` settings intact, and remove the `[windows]` section only if it becomes empty.
-8. Remind the user to fully quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; then reinstall the bundled plugins inside the Codex app. The current thread's available tool list may not refresh until a new thread starts.
+8. End with a prominent reminder:
+
+   ```text
+   IMPORTANT NEXT STEPS:
+   1. Fully quit Codex, Chrome, and extension-host.exe.
+   2. Delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled.
+   3. Reinstall the bundled plugins in the Codex app.
+   4. Start a new thread before retrying Browser Use or @chrome.
+   ```
+
+   If helper repair reports `pendingReplacements`, tell the user to fully quit Codex, Chrome, and `extension-host.exe`, then manually replace each listed helper by deleting the `destination` path and renaming the `pending` path to the same destination path. If helper repair reports leftover paths with `failed-remove` in `transientCleanup` or `cleanup`, tell the user to manually delete those listed paths after quitting the same processes. The current thread's available tool list may not refresh until a new thread starts.
 
 ## Marketplace Script
 

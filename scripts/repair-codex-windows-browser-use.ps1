@@ -229,24 +229,111 @@ function Copy-FileStream {
     $parent = Split-Path -Parent $Destination
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
 
-    $tmp = "$Destination.tmp"
-    if (Test-Path -LiteralPath $tmp) {
-        Remove-Item -LiteralPath $tmp -Force
+    $legacyTmp = "$Destination.tmp"
+    if (Test-Path -LiteralPath $legacyTmp) {
+        Remove-Item -LiteralPath $legacyTmp -Force -ErrorAction SilentlyContinue
     }
 
-    $inputStream = [System.IO.File]::Open($Source, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
-    try {
-        $outputStream = [System.IO.File]::Open($tmp, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    if (Test-Path -LiteralPath $Destination) {
         try {
-            $inputStream.CopyTo($outputStream, 1048576)
-        } finally {
-            $outputStream.Dispose()
+            $replaceProbe = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+            $replaceProbe.Dispose()
+        } catch {
+            throw "Cannot replace helper while it is in use: $Destination. Quit Codex, Chrome, and extension-host.exe, then rerun this script. $($_.Exception.Message)"
         }
-    } finally {
-        $inputStream.Dispose()
     }
 
-    Move-Item -LiteralPath $tmp -Destination $Destination -Force
+    $tmp = "$Destination.tmp.$([System.Guid]::NewGuid().ToString("N"))"
+
+    try {
+        $inputStream = [System.IO.File]::Open($Source, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        try {
+            $outputStream = [System.IO.File]::Open($tmp, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+            try {
+                $inputStream.CopyTo($outputStream, 1048576)
+            } finally {
+                $outputStream.Dispose()
+            }
+        } finally {
+            $inputStream.Dispose()
+        }
+
+        if (Test-Path -LiteralPath $Destination) {
+            [System.IO.File]::Delete($Destination)
+        }
+        [System.IO.File]::Move($tmp, $Destination)
+    } catch {
+        if (Test-Path -LiteralPath $tmp) {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
+function Get-FileReplacementReadiness {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return [pscustomobject]@{
+            replaceable = $true
+            error = $null
+        }
+    }
+
+    try {
+        $replaceProbe = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        $replaceProbe.Dispose()
+        return [pscustomobject]@{
+            replaceable = $true
+            error = $null
+        }
+    } catch {
+        return [pscustomobject]@{
+            replaceable = $false
+            error = $_.Exception.Message
+        }
+    }
+}
+
+function Get-PendingReplacementPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$SourceHash
+    )
+
+    return "$Destination.pending.$($SourceHash.Substring(0, 16))"
+}
+
+function Remove-HelperTransientFiles {
+    param([Parameter(Mandatory = $true)][string]$Destination)
+
+    $cleanup = New-Object System.Collections.Generic.List[object]
+    $parent = Split-Path -Parent $Destination
+    $leaf = Split-Path -Leaf $Destination
+    if (-not (Test-Path -LiteralPath $parent)) {
+        return $cleanup
+    }
+
+    foreach ($pattern in @("$leaf.tmp", "$leaf.tmp.*", "$leaf.bak.*")) {
+        foreach ($file in @(Get-ChildItem -LiteralPath $parent -Filter $pattern -File -ErrorAction SilentlyContinue)) {
+            $entry = [ordered]@{
+                file = $file.FullName
+                reason = "helper-transient-file"
+            }
+
+            try {
+                Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
+                $entry.action = "removed"
+            } catch {
+                $entry.action = "failed-remove"
+                $entry.error = $_.Exception.Message
+            }
+
+            $cleanup.Add([pscustomobject]$entry)
+        }
+    }
+
+    return $cleanup
 }
 
 function Get-HelperDestinationRelativePath {
@@ -443,6 +530,8 @@ $HelperBinaries = Resolve-HelperBinaries -SourceDir $sourceDir
 New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
 
 $results = New-Object System.Collections.Generic.List[object]
+$transientCleanup = New-Object System.Collections.Generic.List[object]
+$pendingReplacements = New-Object System.Collections.Generic.List[object]
 $destinationBySource = @{}
 $currentHashDirectories = @{}
 
@@ -453,13 +542,41 @@ foreach ($helper in $HelperBinaries) {
     $destinationBySource[$helper.Source] = $destination
     $currentHashDirectories[$helper.DestinationDirectory.ToLowerInvariant()] = $true
 
+    if (-not $DryRun) {
+        foreach ($cleanupEntry in @(Remove-HelperTransientFiles -Destination $destination)) {
+            $transientCleanup.Add($cleanupEntry)
+        }
+    }
+
     $state = Get-FileState -Source $source -Destination $destination
-    $needsCopy = $Force -or (-not $state.destExists) -or (-not $state.sameHash)
+    $needsCopy = (-not $state.destExists) -or (-not $state.sameHash)
     $action = if ($needsCopy) { if ($DryRun) { "would-copy" } else { "copied" } } else { "skipped" }
 
     if ($needsCopy -and -not $DryRun) {
-        Copy-FileStream -Source $source -Destination $destination
-        $state = Get-FileState -Source $source -Destination $destination
+        $readiness = Get-FileReplacementReadiness -Path $destination
+        if ($readiness.replaceable) {
+            Copy-FileStream -Source $source -Destination $destination
+            $state = Get-FileState -Source $source -Destination $destination
+        } else {
+            $pendingPath = Get-PendingReplacementPath -Destination $destination -SourceHash $state.sourceHash
+            Copy-FileStream -Source $source -Destination $pendingPath
+            $pendingState = Get-FileState -Source $source -Destination $pendingPath
+            $action = "staged-pending-replacement"
+            $pendingReplacements.Add([pscustomobject]@{
+                file = $helper.Source
+                reason = "destination-in-use"
+                destination = $destination
+                pending = $pendingPath
+                pendingLength = $pendingState.destLength
+                pendingHash = $pendingState.destHash
+                pendingMatchesSource = $pendingState.sameHash
+                error = $readiness.error
+                replaceAfterQuit = @(
+                    "Delete $destination",
+                    "Rename $pendingPath to $destination"
+                )
+            })
+        }
     }
 
     $results.Add([pscustomobject]@{
@@ -492,14 +609,63 @@ if (-not $DryRun) {
     $validation.rgVersion = ((& $rgPath --version) | Select-Object -First 1) -join "`n"
 }
 
+$failedTransientFiles = @(
+    $transientCleanup |
+        Where-Object { $_.action -eq "failed-remove" } |
+        ForEach-Object { $_.file }
+)
+$failedStaleDirectories = @(
+    $cleanup |
+        Where-Object { $_.action -eq "failed-remove" } |
+        ForEach-Object { Join-Path $DestinationDir $_.directory }
+)
+$manualCleanupPaths = @($failedTransientFiles) + @($failedStaleDirectories)
+$manualReplacements = @(
+    $pendingReplacements |
+        Where-Object { $_.pendingMatchesSource } |
+        ForEach-Object {
+            [pscustomobject]@{
+                destination = $_.destination
+                pending = $_.pending
+            }
+        }
+)
+$cachePath = Join-Path $env:USERPROFILE ".codex\plugins\cache\openai-bundled"
+$nextStepLines = @(
+    "IMPORTANT NEXT STEPS:",
+    "1. Fully quit Codex, Chrome, and extension-host.exe.",
+    "2. Delete $cachePath.",
+    "3. Reinstall the bundled plugins in the Codex app.",
+    "4. Start a new thread before retrying Browser Use or @chrome."
+)
+
+if ($manualCleanupPaths.Count -gt 0) {
+    $nextStepLines += ""
+    $nextStepLines += "MANUAL CLEANUP REQUIRED after quitting Codex/Chrome/extension-host.exe:"
+    foreach ($path in $manualCleanupPaths) {
+        $nextStepLines += "- Delete $path"
+    }
+}
+
+if ($manualReplacements.Count -gt 0) {
+    $nextStepLines += ""
+    $nextStepLines += "MANUAL REPLACEMENT REQUIRED after quitting Codex/Chrome/extension-host.exe:"
+    foreach ($replacement in $manualReplacements) {
+        $nextStepLines += "- Delete $($replacement.destination)"
+        $nextStepLines += "- Rename $($replacement.pending) to $($replacement.destination)"
+    }
+}
+
 [pscustomobject]@{
     sourceDir = $sourceDir
     destinationDir = $DestinationDir
     dryRun = [bool]$DryRun
     force = [bool]$Force
     files = $results
+    transientCleanup = $transientCleanup
+    pendingReplacements = $pendingReplacements
     cleanup = $cleanup
     configCleanup = $configCleanup
     validation = $validation
-    nextStep = "Quit Codex, Chrome, and extension-host.exe; delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled; reinstall the bundled plugins in the app; then retry Browser Use or @chrome in a new thread."
+    nextStep = ($nextStepLines -join "`n")
 } | ConvertTo-Json -Depth 5

@@ -284,6 +284,11 @@ if ($EnableBundledPlugins) {
   Write-Host "Bundled plugins were synced but not enabled."
   Write-Host "Re-run with -EnableBundledPlugins to enable every plugin in the bundled marketplace."
 }
+
+$pluginCachePath = Join-Path $env:USERPROFILE ".codex\plugins\cache\openai-bundled"
 Write-Host ""
-Write-Host "Reminder: quit Codex, Chrome, and extension-host.exe; delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled; then reinstall the bundled plugins in the app."
-Write-Host "Restart Codex desktop to reload plugin marketplaces."
+Write-Host "IMPORTANT NEXT STEPS:" -ForegroundColor Yellow
+Write-Host "  1. Fully quit Codex, Chrome, and extension-host.exe."
+Write-Host "  2. Delete $pluginCachePath."
+Write-Host "  3. Reinstall the bundled plugins in the Codex app."
+Write-Host "  4. Restart Codex desktop and open a new thread before retrying Browser Use or @chrome."

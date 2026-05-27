@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-b
 - The helper repair does not hard-code hash directory names. It calculates each directory as the first 16 hex characters of `sha256(file_name + NUL + sha256(file_bytes).hex_lower + NUL)` for each file in the group, matching Codex's relocation behavior after app updates.
 - The helper repair removes stale 16-character hexadecimal hash directories after the current helper directories are populated. `-DryRun` reports those entries as `would-remove` without deleting them, and non-hash files or directories are left untouched.
 - The scripts avoid copying the entire Codex `app\resources` directory into the helper cache.
-- After running a repair, quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; then reinstall the bundled plugins inside the Codex app. The current thread's available tool list may not refresh until a new thread is opened.
+- After running a repair, follow the final `IMPORTANT NEXT STEPS` reminder: fully quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; reinstall the bundled plugins inside the Codex app; then restart Codex and open a new thread. If `pendingReplacements` is present, quit those processes, delete each listed `destination`, and rename its `pending` file to that destination path. If `transientCleanup` or `cleanup` reports `failed-remove`, manually delete the listed leftover paths after quitting those processes. The current thread's available tool list may not refresh until a new thread is opened.
 
 ## Why This Exists
 
