@@ -287,8 +287,8 @@ if ($EnableBundledPlugins) {
 
 $pluginCachePath = Join-Path $env:USERPROFILE ".codex\plugins\cache\openai-bundled"
 Write-Host ""
-Write-Host "IMPORTANT NEXT STEPS:" -ForegroundColor Yellow
-Write-Host "  1. Fully quit Codex, Chrome, and extension-host.exe."
-Write-Host "  2. Delete $pluginCachePath."
-Write-Host "  3. Reinstall the bundled plugins in the Codex app."
-Write-Host "  4. Restart Codex desktop and open a new thread before retrying Browser Use or @chrome."
+Write-Host "重要后续步骤：" -ForegroundColor Yellow
+Write-Host "  1. 完全退出 Codex、Chrome 和 extension-host.exe。"
+Write-Host "  2. 删除 $pluginCachePath。"
+Write-Host "  3. 在 Codex 应用中重新安装 bundled 插件。"
+Write-Host "  4. 重新启动 Codex，并打开新线程后再重试 Browser Use 或 @chrome。"

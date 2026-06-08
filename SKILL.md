@@ -83,14 +83,14 @@ Use this skill only after it is explicitly requested. It recovers Codex desktop'
 8. End with a prominent reminder:
 
    ```text
-   IMPORTANT NEXT STEPS:
-   1. Fully quit Codex, Chrome, and extension-host.exe.
-   2. Delete C:\Users\MMZ\.codex\plugins\cache\openai-bundled.
-   3. Reinstall the bundled plugins in the Codex app.
-   4. Start a new thread before retrying Browser Use or @chrome.
+   重要后续步骤：
+   1. 完全退出 Codex、Chrome 和 extension-host.exe。
+   2. 删除 C:\Users\MMZ\.codex\plugins\cache\openai-bundled。
+   3. 在 Codex 应用中重新安装 bundled 插件。
+   4. 重新启动 Codex，并打开新线程后再重试 Browser Use 或 @chrome。
    ```
 
-   If helper repair reports `pendingReplacements`, tell the user to fully quit Codex, Chrome, and `extension-host.exe`, then manually replace each listed helper by deleting the `destination` path and renaming the `pending` path to the same destination path. If helper repair reports leftover paths with `failed-remove` in `transientCleanup` or `cleanup`, tell the user to manually delete those listed paths after quitting the same processes. The current thread's available tool list may not refresh until a new thread starts.
+   如果 helper repair 报告 `pendingReplacements`，提醒用户完全退出 Codex、Chrome 和 `extension-host.exe`，然后手动替换每个列出的 helper：删除 `destination` 路径，并把 `pending` 路径重命名为同一个 `destination` 路径。如果 helper repair 在 `transientCleanup` 或 `cleanup` 中报告带有 `failed-remove` 的残留路径，提醒用户退出同样的进程后手动删除这些路径。当前线程的可用工具列表可能要到新线程中才会刷新。
 
 ## Marketplace Script
 

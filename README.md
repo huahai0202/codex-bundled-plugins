@@ -123,7 +123,7 @@ powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\.codex\skills\codex-b
 - The helper repair does not hard-code hash directory names. It calculates each directory as the first 16 hex characters of `sha256(file_name + NUL + sha256(file_bytes).hex_lower + NUL)` for each file in the group, matching Codex's relocation behavior after app updates.
 - The helper repair removes stale 16-character hexadecimal hash directories after the current helper directories are populated. `-DryRun` reports those entries as `would-remove` without deleting them, and non-hash files or directories are left untouched.
 - The scripts avoid copying the entire Codex `app\resources` directory into the helper cache.
-- After running a repair, follow the final `IMPORTANT NEXT STEPS` reminder: fully quit Codex, Chrome, and `extension-host.exe`; delete `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`; reinstall the bundled plugins inside the Codex app; then restart Codex and open a new thread. If `pendingReplacements` is present, quit those processes, delete each listed `destination`, and rename its `pending` file to that destination path. If `transientCleanup` or `cleanup` reports `failed-remove`, manually delete the listed leftover paths after quitting those processes. The current thread's available tool list may not refresh until a new thread is opened.
+- After running a repair, follow the final `重要后续步骤` reminder: 完全退出 Codex、Chrome 和 `extension-host.exe`；删除 `C:\Users\MMZ\.codex\plugins\cache\openai-bundled`；在 Codex 应用中重新安装 bundled 插件；然后重新启动 Codex，并打开新线程。如果存在 `pendingReplacements`，退出这些进程后删除每个列出的 `destination`，并把对应的 `pending` 文件重命名为该 `destination` 路径。如果 `transientCleanup` 或 `cleanup` 报告 `failed-remove`，退出这些进程后手动删除列出的残留路径。当前线程的可用工具列表可能要到新线程中才会刷新。
 
 ## Why This Exists
 

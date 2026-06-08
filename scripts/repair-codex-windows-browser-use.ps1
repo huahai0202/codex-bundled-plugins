@@ -572,8 +572,8 @@ foreach ($helper in $HelperBinaries) {
                 pendingMatchesSource = $pendingState.sameHash
                 error = $readiness.error
                 replaceAfterQuit = @(
-                    "Delete $destination",
-                    "Rename $pendingPath to $destination"
+                    "删除 $destination",
+                    "将 $pendingPath 重命名为 $destination"
                 )
             })
         }
@@ -632,27 +632,27 @@ $manualReplacements = @(
 )
 $cachePath = Join-Path $env:USERPROFILE ".codex\plugins\cache\openai-bundled"
 $nextStepLines = @(
-    "IMPORTANT NEXT STEPS:",
-    "1. Fully quit Codex, Chrome, and extension-host.exe.",
-    "2. Delete $cachePath.",
-    "3. Reinstall the bundled plugins in the Codex app.",
-    "4. Start a new thread before retrying Browser Use or @chrome."
+    "重要后续步骤：",
+    "1. 完全退出 Codex、Chrome 和 extension-host.exe。",
+    "2. 删除 $cachePath。",
+    "3. 在 Codex 应用中重新安装 bundled 插件。",
+    "4. 重新启动 Codex，并打开新线程后再重试 Browser Use 或 @chrome。"
 )
 
 if ($manualCleanupPaths.Count -gt 0) {
     $nextStepLines += ""
-    $nextStepLines += "MANUAL CLEANUP REQUIRED after quitting Codex/Chrome/extension-host.exe:"
+    $nextStepLines += "需要手动清理：退出 Codex、Chrome 和 extension-host.exe 后执行："
     foreach ($path in $manualCleanupPaths) {
-        $nextStepLines += "- Delete $path"
+        $nextStepLines += "- 删除 $path"
     }
 }
 
 if ($manualReplacements.Count -gt 0) {
     $nextStepLines += ""
-    $nextStepLines += "MANUAL REPLACEMENT REQUIRED after quitting Codex/Chrome/extension-host.exe:"
+    $nextStepLines += "需要手动替换：退出 Codex、Chrome 和 extension-host.exe 后执行："
     foreach ($replacement in $manualReplacements) {
-        $nextStepLines += "- Delete $($replacement.destination)"
-        $nextStepLines += "- Rename $($replacement.pending) to $($replacement.destination)"
+        $nextStepLines += "- 删除 $($replacement.destination)"
+        $nextStepLines += "- 将 $($replacement.pending) 重命名为 $($replacement.destination)"
     }
 }
 
